@@ -21,6 +21,7 @@ namespace Microsoft.AspNetCore.Components.Rendering
         };
 
         private readonly Func<string, string> _htmlEncoder;
+        private readonly Dictionary<string, int> _currentAttributes;
 
         /// <summary>
         /// Initializes a new instance of <see cref="HtmlRenderer"/>.
@@ -32,6 +33,9 @@ namespace Microsoft.AspNetCore.Components.Rendering
             : base(serviceProvider, dispatcher)
         {
             _htmlEncoder = htmlEncoder;
+
+            // HTML attributes are case-insensitive ASCII
+            _currentAttributes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />
@@ -189,6 +193,29 @@ namespace Microsoft.AspNetCore.Components.Rendering
                 return position;
             }
 
+            // We need to de-duplicate attributes when rendering to HTML. We allow *last-attribute-wins* when writing
+            // Blazor code, but HTML is the opposite.
+            //
+            // To implement this we do two passes through the attributes:
+            // - On the first pass, record the index of the *last* occurrence of the attribute.
+            // - On the second pass, write each attribute *if* it's the last occurrence.
+            //
+            // This process is done by the compiler for markup blocks (fully static HTML), so we don't need to repeat
+            // it there.
+            _currentAttributes.Clear();
+
+            for (var i = 0; i < maxElements; i++)
+            {
+                var candidateIndex = position + i;
+                ref var frame = ref frames.Array[candidateIndex];
+                if (frame.FrameType != RenderTreeFrameType.Attribute)
+                {
+                    break;
+                }
+
+                _currentAttributes[frame.AttributeName] = i;
+            }
+
             for (var i = 0; i < maxElements; i++)
             {
                 var candidateIndex = position + i;
@@ -196,6 +223,12 @@ namespace Microsoft.AspNetCore.Components.Rendering
                 if (frame.FrameType != RenderTreeFrameType.Attribute)
                 {
                     return candidateIndex;
+                }
+
+                if (_currentAttributes[frame.AttributeName] != i)
+                {
+                    // The attribute has been superseded by one that appears later.
+                    continue;
                 }
 
                 switch (frame.AttributeValue)
