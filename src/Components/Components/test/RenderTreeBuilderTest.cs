@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Test.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -243,6 +244,197 @@ namespace Microsoft.AspNetCore.Components.Test
                 frame => AssertFrame.Element(frame, "child", 3),
                 frame => AssertFrame.Attribute(frame, "childevent", eventHandler),
                 frame => AssertFrame.Text(frame, "some text"));
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_AllowsNull()
+        {
+            // Arrange
+            var builder = new RenderTreeBuilder(new TestRenderer());
+
+            // Act
+            builder.OpenElement(0, "myelement");
+            builder.AddMultipleAttributes<object>(0, null);
+            builder.CloseElement();
+
+            // Assert
+            var frames = builder.GetFrames().AsEnumerable().ToArray();
+            Assert.Collection(
+                frames,
+                frame => AssertFrame.Element(frame, "myelement", 1));
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_InterspersedWithOtherAttributes()
+        {
+            // Arrange
+            var builder = new RenderTreeBuilder(new TestRenderer());
+            Action<UIEventArgs> eventHandler = eventInfo => { };
+
+            // Act
+            builder.OpenElement(0, "myelement");
+            builder.AddAttribute(0, "attribute1", "value 1");
+            builder.AddMultipleAttributes(0, new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "attribute1", "test1" },
+                { "attribute2", true },
+                { "attribute3", eventHandler },
+            });
+            builder.AddAttribute(0, "attribute2", false);
+            builder.AddMultipleAttributes(0, new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "attribute4", "test4" },
+                { "attribute5", false },
+                { "attribute6", eventHandler },
+            });
+            builder.AddAttribute(0, "attribute7", "the end");
+            builder.CloseElement();
+
+            // Assert
+            var frames = builder.GetFrames().AsEnumerable().ToArray();
+            Assert.Collection(
+                frames,
+                frame => AssertFrame.Element(frame, "myelement", 8),
+                frame => AssertFrame.Attribute(frame, "attribute1", "value 1"),
+                frame => AssertFrame.Attribute(frame, "attribute1", "test1"),
+                frame => AssertFrame.Attribute(frame, "attribute2", true),
+                frame => AssertFrame.Attribute(frame, "attribute3", eventHandler),
+                frame => AssertFrame.Attribute(frame, "attribute4", "test4"),
+                frame => AssertFrame.Attribute(frame, "attribute6", eventHandler),
+                frame => AssertFrame.Attribute(frame, "attribute7", "the end"));
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_DictionaryString()
+        {
+            var attributes = new Dictionary<string, string>
+            {
+                { "attribute1", "test1" },
+                { "attribute2", "123" },
+                { "attribute3", "456" },
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest(attributes);
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_DictionaryObject()
+        {
+            var attributes = new Dictionary<string, object>
+            {
+                { "attribute1", "test1" },
+                { "attribute2", "123" },
+                { "attribute3", true },
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest(attributes);
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_IReadOnlyDictionaryString()
+        {
+            var attributes = new Dictionary<string, string>
+            {
+                { "attribute1", "test1" },
+                { "attribute2", "123" },
+                { "attribute3", "456" },
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest((IReadOnlyDictionary<string, string>)attributes);
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_IReadOnlyDictionaryObject()
+        {
+            var attributes = new Dictionary<string, object>
+            {
+                { "attribute1", "test1" },
+                { "attribute2", "123" },
+                { "attribute3", true },
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest((IReadOnlyDictionary<string, object>)attributes);
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_ListKvpString()
+        {
+            var attributes = new List<KeyValuePair<string, object>>()
+            {
+                new KeyValuePair<string, object>("attribute1", "test1"),
+                new KeyValuePair<string, object>("attribute2", "123"),
+                new KeyValuePair<string, object>("attribute3", "456"),
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest(attributes);
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_ListKvpObject()
+        {
+            var attributes = new List<KeyValuePair<string, object>>()
+            {
+                new KeyValuePair<string, object>("attribute1", "test1"),
+                new KeyValuePair<string, object>("attribute2", "123"),
+                new KeyValuePair<string, object>("attribute3", true),
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest(attributes);
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_ArrayKvpString()
+        {
+            var attributes = new KeyValuePair<string, string>[]
+            {
+                new KeyValuePair<string, string>("attribute1", "test1"),
+                new KeyValuePair<string, string>("attribute2", "123"),
+                new KeyValuePair<string, string>("attribute3", "456"),
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest(attributes);
+        }
+
+        [Fact]
+        public void CanAddMultipleAttributes_ArrayKvpObject()
+        {
+            var attributes = new KeyValuePair<string, object>[]
+            {
+                new KeyValuePair<string, object>("attribute1", "test1"),
+                new KeyValuePair<string, object>("attribute2", "123"),
+                new KeyValuePair<string, object>("attribute3", true),
+            };
+
+            // Act & Assert
+            CanAddMultipleAttributesTest(attributes);
+        }
+
+        private void CanAddMultipleAttributesTest<T>(IEnumerable<KeyValuePair<string, T>> attributes)
+        {
+            // Arrange
+            var builder = new RenderTreeBuilder(new TestRenderer());
+
+            // Act
+            builder.OpenElement(0, "myelement");
+            builder.AddMultipleAttributes(0, attributes);
+            builder.CloseElement();
+
+            // Assert
+            var frames = builder.GetFrames().AsEnumerable().ToArray();
+
+            var i = 1;
+            foreach (var attribute in attributes)
+            {
+                var frame = frames[i++];
+                AssertFrame.Attribute(frame, attribute.Key, attribute.Value);
+            }
         }
 
         [Fact]
